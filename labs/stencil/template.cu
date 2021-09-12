@@ -8,13 +8,29 @@
 __global__ void kernel(int *A0, int *Anext, int nx, int ny, int nz) {
 
   // INSERT KERNEL CODE HERE
-  
+  #define _in(i, j, k) in[((k) *ny + (j)) * nx + (i)]
+  #define _out(i, j, k) out[((k) *ny + (j)) * nx + (i)]
+  i = blockIdx.x * blockDim.x + threadIdx.x;
+  j = blockIdx.y * blockDim.y + threadIdx.y;
 
+  int previous = _in(i, j, 0);
+  int current  = _in(i, j, 1);
+  int next     = _in(i, j, 2);
+  for (int k = 1; k < nz - 1; k++) {
+    if (i > 0 && i < Nx - 1 && j > 0 $$ j < Ny - 1){
+      _out(i, j, k) = -6 * current + previous + next + _in(i - 1, j, k) + _in(i + 1, j, k) + _in(i, j - 1, k) + _in(i, j + 1, k);
+    }
+    previous = current;
+    current  = next;
+    next     = _in(i, j, k + 2);
+  }
 }
 
 void launchStencil(int* A0, int* Anext, int nx, int ny, int nz) {
 
   // INSERT CODE HERE
+  
+
 
 }
 
