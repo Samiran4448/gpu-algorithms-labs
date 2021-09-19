@@ -47,7 +47,8 @@ __global__ void mysgemm(int m, int n, int k, const float *A, const float *B, flo
   // if (bx == 0 && by == 0)
   //   printf("I am thread %d, kernel was launched\n", threadIdx.y);
   __shared__ float B_shared[S][U];
-  float A_reg[S];
+  // float A_reg[S];
+  float A_reg = 0;
   float C_reg[U];
 
   for (int i = 0; i < U; i++) {
@@ -61,23 +62,26 @@ __global__ void mysgemm(int m, int n, int k, const float *A, const float *B, flo
       B_shared[tile_row][tile_column] = B(t * S + tile_row, bx * U + tile_column);
     else
       B_shared[tile_row][tile_column] = 0;
+    __syncthreads();
     for (int i = 0; i < S; i++) {
       if ((by * blockDim.y + ty) < m && (t * S + i) < k)
-        A_reg[i] = A(by * blockDim.y + ty, t * S + i);
+        A_reg = A(by * blockDim.y + ty, t * S + i);
       else
-        A_reg[i] = 0;
-    }
-    __syncthreads();
-    for (int j = 0; j < U; j++) {
-      for (int i = 0; i < S; i++) {
-        C_reg[j] += A_reg[i] * B_shared[i][j];
+        A_reg = 0;
+      // }
+
+      for (int j = 0; j < U; j++) {
+        // for (int i = 0; i < S; i++) {
+        C_reg[j] += A_reg * B_shared[i][j];
+        // }
       }
     }
+    
+    for (int i = 0; i < U; i++) {
+      if ((by * blockDim.y + ty) < m && (bx * U + i) < n)
+        C(by * blockDim.y + ty, bx * U + i) = C_reg[i];
+    }
     __syncthreads();
-  }
-  for (int i = 0; i < U; i++) {
-    if ((by * blockDim.y + ty) < m && (bx * U + i) < n)
-      C(by * blockDim.y + ty, bx * U + i) = C_reg[i];
   }
 }
 
