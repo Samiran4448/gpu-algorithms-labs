@@ -76,12 +76,11 @@ __global__ void mysgemm(int m, int n, int k, const float *A, const float *B, flo
         // }
       }
     }
-    
-    for (int i = 0; i < U; i++) {
-      if ((by * blockDim.y + ty) < m && (bx * U + i) < n)
-        C(by * blockDim.y + ty, bx * U + i) = C_reg[i];
-    }
     __syncthreads();
+  }
+  for (int i = 0; i < U; i++) {
+    if ((by * blockDim.y + ty) < m && (bx * U + i) < n)
+      C(by * blockDim.y + ty, bx * U + i) = C_reg[i];
   }
 }
 
