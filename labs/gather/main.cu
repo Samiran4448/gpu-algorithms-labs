@@ -2,6 +2,16 @@
 
 __global__ void s2g_gpu_gather_kernel(uint32_t *in, uint32_t *out, int len) {
   //@@ INSERT KERNEL CODE HERE
+  int outIdx = blockDim.x * blockIdx.x + threadIdx.x;
+  uint32_t intermediate = 0;
+  uint32_t result = 0;
+  if (outIdx < len) {
+    for (int inIdx = 0; inIdx < len; inIdx++){
+      intermediate = outInvariant(in[inIdx]);
+      result += outDependent(intermediate, inIdx, outIdx);
+    }
+    out[outIdx] = result;
+  }
 }
 
 
@@ -19,6 +29,13 @@ static void s2g_cpu_gather(uint32_t *in, uint32_t *out, int len) {
 
 static void s2g_gpu_gather(uint32_t *in, uint32_t *out, int len) {
   //@@ INSERT CODE HERE
+  
+  int threadx   = 1024;
+  dim3 blockDim = dim3(threadx, 1, 1);
+  dim3 gridDim  = dim3((len + threadx - 1) / threadx, 1, 1);
+
+  s2g_gpu_gather_kernel<<<gridDim, blockDim>>>(in, out, len);
+
 }
 
 

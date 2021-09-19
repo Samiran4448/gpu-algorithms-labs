@@ -696,3 +696,6 @@ build*
 .ptp-sync-folder
 .ptp-sync
 .vscode
+.rai_profile
+rai
+rai_profile.*

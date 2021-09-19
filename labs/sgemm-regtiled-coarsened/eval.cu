@@ -137,5 +137,8 @@ static int eval(const size_t matArow, const size_t matAcol, const size_t matBcol
     SECTION("[dims:256,256,256]") {
         eval(256,256,256);
     }
+    // SECTION("[dims:4096,4096,4096]"){
+    //   eval(4096,4096,4096);
+    // }
   }
 } // namespace gpu_algorithms_labs_evaluation

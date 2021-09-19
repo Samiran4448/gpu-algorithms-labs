@@ -5,35 +5,96 @@
 
 #define TILE_SIZE 30
 
-__global__ void kernel(int *A0, int *Anext, int nx, int ny, int nz) {
+__global__ void kernel_SM(int *A0, int *Anext, int nx, int ny, int nz) {
 
   // INSERT KERNEL CODE HERE
-  #define _in(i, j, k) in[((k) *ny + (j)) * nx + (i)]
-  #define _out(i, j, k) out[((k) *ny + (j)) * nx + (i)]
-  i = blockIdx.x * blockDim.x + threadIdx.x;
-  j = blockIdx.y * blockDim.y + threadIdx.y;
+  __shared__ int data[TILE_SIZE + 2][TILE_SIZE + 2];
+#define _in(i, j, k) A0[((k) *ny + (j)) * nx + (i)]
+#define _out(i, j, k) Anext[((k) *ny + (j)) * nx + (i)]
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
+  int tx = threadIdx.x;
+  int ty = threadIdx.y;
+  int previous, current, next = 0;
 
-  int previous = _in(i, j, 0);
-  int current  = _in(i, j, 1);
-  int next     = _in(i, j, 2);
+  if (i < nx && j < ny) {
+    previous = _in(i, j, 0);
+    current  = _in(i, j, 1);
+    next     = _in(i, j, 2);
+  }
+
   for (int k = 1; k < nz - 1; k++) {
-    if (i > 0 && i < Nx - 1 && j > 0 $$ j < Ny - 1){
+    if (i < nx && j < ny)
+      data[tx][ty] = _in(i, j, k);
+    else
+      data[tx][ty] = 0;
+    __syncthreads();
+    if (i > 0 && i < nx - 1 && j > 0 && j < ny - 1) {
+      // _out(i, j, k) = -6 * current + previous + next + _in(i - 1, j, k) + _in(i + 1, j, k) + _in(i, j - 1, k) + _in(i, j + 1, k);
+      int xm1y      = (0 < tx ? data[tx - 1][ty] : _in(i - 1, j, k));
+      int xp1y      = (blockDim.x - 1 > tx ? data[tx + 1][ty] : _in(i + 1, j, k));
+      int xym1      = (0 < ty ? data[tx][ty - 1] : _in(i, j - 1, k));
+      int xyp1      = (blockDim.y - 1 > ty ? data[tx][ty + 1] : _in(i, j + 1, k));
+      _out(i, j, k) = -6 * current + previous + next + xm1y + xp1y + xym1 + xyp1;
+    }
+    __syncthreads();
+    previous = current;
+    current  = next;
+    if (k + 2 < nz)
+      next = _in(i, j, k + 2);
+    else
+      next = 0;
+  }
+}
+
+__global__ void kernel_GM(int *A0, int *Anext, int nx, int ny, int nz) {
+
+  // INSERT KERNEL CODE HERE
+#define _in(i, j, k) A0[((k) *ny + (j)) * nx + (i)]
+#define _out(i, j, k) Anext[((k) *ny + (j)) * nx + (i)]
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
+  int previous, current, next = 0;
+
+  if (i < nx && j < ny) {
+    previous = _in(i, j, 0);
+    current  = _in(i, j, 1);
+    next     = _in(i, j, 2);
+  }
+
+  for (int k = 1; k < nz - 1; k++) {
+    if (i > 0 && i < nx - 1 && j > 0 && j < ny - 1){
       _out(i, j, k) = -6 * current + previous + next + _in(i - 1, j, k) + _in(i + 1, j, k) + _in(i, j - 1, k) + _in(i, j + 1, k);
     }
     previous = current;
     current  = next;
-    next     = _in(i, j, k + 2);
+    if (k + 2 < nz)
+      next = _in(i, j, k + 2);
+    else
+      next = 0;
   }
+
 }
+
 
 void launchStencil(int* A0, int* Anext, int nx, int ny, int nz) {
 
   // INSERT CODE HERE
-  
-
-
+  int blockx             = TILE_SIZE + 2;
+  int blocky             = TILE_SIZE + 2;
+  dim3 threads_per_block = dim3(blockx, blocky, 1);
+  dim3 blocks_per_grid   = dim3((nx + blockx - 1) / blockx, (ny + blocky - 1) / blocky, 1);
+  // std::cout << "Code reached Here" << std::endl;
+  // timer_start("GM Kernel");
+  // kernel_GM<<<blocks_per_grid, threads_per_block>>>(A0, Anext, nx, ny, nz);
+  // PRINT_IF_LAUNCH_ERROR(cudaGetLastError());
+  // timer_stop();
+  // CUDA_RUNTIME(cudaDeviceSynchronize());
+  // timer_start("SM Kernel");
+  kernel_SM<<<blocks_per_grid, threads_per_block>>>(A0, Anext, nx, ny, nz);
+  // timer_stop();
+  PRINT_IF_LAUNCH_ERROR(cudaGetLastError());
 }
-
 
 static int eval(const int nx, const int ny, const int nz) {
 
@@ -67,16 +128,19 @@ static int eval(const int nx, const int ny, const int nz) {
   launchStencil(deviceA0, deviceAnext, nx, ny, nz);
   CUDA_RUNTIME(cudaDeviceSynchronize());
   timer_stop();
+  
 
   timer_start("Copying output to the CPU");
   CUDA_RUNTIME(cudaMemcpy(hostAnext.data(), deviceAnext, nx * ny * nz * sizeof(int), cudaMemcpyDefault));
   CUDA_RUNTIME(cudaDeviceSynchronize());
   timer_stop();
 
+
   // verify with provided implementation
   timer_start("Verifying results");
   verify(hostAnext.data(), hostA0.data(), nx, ny, nz);
   timer_stop();
+
 
   CUDA_RUNTIME(cudaFree(deviceA0));
   CUDA_RUNTIME(cudaFree(deviceAnext));
@@ -108,6 +172,6 @@ TEST_CASE("Stencil", "[stencil]") {
   }
   SECTION("[dims:512,512,64]") {
     eval(512,512,64);
-  }
+  } 
 
 }
