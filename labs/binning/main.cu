@@ -99,18 +99,38 @@ __global__ void gpu_cutoff_binned_kernel(int *bin_ptrs,
     // if (outBin + binWidth < rmostBin)
     //   rmostBin = outBin + binWidth;
 
-    int lb       = std::floor(((float) out_i) - sqrtf(cutoff2));
-    int ub       = std::ceil(((float) out_i) + sqrtf(cutoff2));
-    int lmostBin = MAX((int) (lb / grid_size) * NUM_BINS, 0);
-    int rmostBin = MIN((int) (ub / grid_size) * NUM_BINS, NUM_BINS - 1);
+    const int lb       = std::floor(((float) out_i) - sqrtf(cutoff2));
+    const int ub       = std::ceil(((float) out_i) + sqrtf(cutoff2));
+    const int lmostBin = MAX((int) (lb / grid_size) * NUM_BINS, 0);
+    const int rmostBin = MIN((int) (ub / grid_size) * NUM_BINS, NUM_BINS - 1);
 
     // scan the bins of interest
-    const int start = bin_ptrs[lmostBin];
-    const int end   = bin_ptrs[rmostBin + 1];
+    const int start     = bin_ptrs[lmostBin];
+    const int landmark1 = bin_ptrs[lmostBin + 1];
+    const int landmark2 = bin_ptrs[rmostBin];
+    const int end       = bin_ptrs[rmostBin + 1];
     // printf("start %d\n", start);
     // printf("end %d\n", end);
     float value = 0;
-    for (int i = start; i < end; i++) {
+    for (int i = start; i < landmark1; i++) {
+      // check for cutoff
+      const float dist = (in_pos_sorted[i] - out_i) * (in_pos_sorted[i] - out_i);
+      if (dist < cutoff2) {
+        const float num = in_val_sorted[i] * in_val_sorted[i];
+        value += num / dist;
+      }
+    }
+    //need not check cutoff between landmark 1 and landmark2
+    for (int i = landmark1; i < landmark2; i++) {
+      // check for cutoff
+      const float dist = (in_pos_sorted[i] - out_i) * (in_pos_sorted[i] - out_i);
+      // if (dist < cutoff2) {
+      const float num = in_val_sorted[i] * in_val_sorted[i];
+      value += num / dist;
+      // }
+    }
+
+    for (int i = landmark2; i < end; i++) {
       // check for cutoff
       const float dist = (in_pos_sorted[i] - out_i) * (in_pos_sorted[i] - out_i);
       if (dist < cutoff2) {
