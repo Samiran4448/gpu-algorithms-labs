@@ -102,13 +102,13 @@ __global__ void gpu_cutoff_binned_kernel(int *bin_ptrs,
     int lb       = std::floor(((float) out_i) - sqrtf(cutoff2));
     int ub       = std::ceil(((float) out_i) + sqrtf(cutoff2));
     int lmostBin = MAX((int) (lb / grid_size) * NUM_BINS, 0);
-    int rmostBin = MIN((int) (ub / grid_size) * NUM_BINS, grid_size - 1);
+    int rmostBin = MIN((int) (ub / grid_size) * NUM_BINS, NUM_BINS - 1);
 
     // scan the bins of interest
-    const int start   = bin_ptrs[0];
-    const int end     = bin_ptrs[grid_size - 1 + 1];
-    printf("start %d\n", start);
-    printf("end %d\n", end);
+    const int start = bin_ptrs[lmostBin];
+    const int end   = bin_ptrs[rmostBin + 1];
+    // printf("start %d\n", start);
+    // printf("end %d\n", end);
     float value = 0;
     for (int i = start; i < end; i++) {
       // check for cutoff
@@ -241,6 +241,7 @@ static void cpu_preprocess(float *in_val, float *in_pos,
                            float *in_val_sorted, float *in_pos_sorted,
                            int grid_size, int num_in, int *bin_counts,
                            int *bin_ptrs) {
+  // printf("cpu preprocess is called\n");
 
   // Histogram the input positions
   for (int binIdx = 0; binIdx < NUM_BINS; ++binIdx) {
@@ -250,14 +251,14 @@ static void cpu_preprocess(float *in_val, float *in_pos,
     const int binIdx = (int)((in_pos[inIdx] / grid_size) * NUM_BINS);
     ++bin_counts[binIdx];
   }
-
+  
   // Scan the histogram to get the bin pointers
   bin_ptrs[0] = 0;
   for (int binIdx = 0; binIdx < NUM_BINS; ++binIdx) {
     bin_ptrs[binIdx + 1] = bin_ptrs[binIdx] + bin_counts[binIdx];
   }
-  // for (int i = 0; i < NUM_BINS;i++){
-  //   std::cout << "Bin Ptrs: " << i << ": " << bin_ptrs[i] << std::endl;
+  // for (int i = 0; i < 10; i++) {
+  //   std::cout << "Bin cts and Ptrs: " << i << ": " << bin_counts[i] << "\t" << bin_ptrs[i] << std::endl;
   // }
 
     // Sort the inputs into the bins
@@ -344,7 +345,7 @@ int eval(const int num_in, const int max, const int grid_size) {
     bin_ptrs_h.reserve(NUM_BINS + 1);
     in_val_sorted_h.reserve(num_in);
     in_pos_sorted_h.reserve(num_in);
-
+    // printf("Code reached here\n");
     cpu_preprocess(in_val_h.data(), in_pos_h.data(), in_val_sorted_h.data(), in_pos_sorted_h.data(), grid_size, num_in, bin_counts_h.data(),
                    bin_ptrs_h.data());
     timer_stop();
@@ -482,124 +483,124 @@ int eval(const int num_in, const int max, const int grid_size) {
   return 0;
 }
 
-// TEST_CASE("CPUNormal", "[cpu_normal]") {
-//   SECTION("[len:60/max:1/gridSize:60]") {
-//     eval<Mode::CPUNormal>(60, 1, 60);
-//   }
-//   SECTION("[len:600/max:1/gridSize:100]") {
-//     eval<Mode::CPUNormal>(600, 1, 100);
-//   }
-//   SECTION("[len:603/max:1/gridSize:201]") {
-//     eval<Mode::CPUNormal>(603, 1, 201);
-//   }
-//   SECTION("[len:409/max:1/gridSize:160]") {
-//     eval<Mode::CPUNormal>(409, 1, 160);
-//   }
-//   SECTION("[len:419/max:1/gridSize:100]") {
-//     eval<Mode::CPUNormal>(419, 1, 100);
-//   }
-//   SECTION("[len:8065/max:1/gridSize:201]") {
-//     eval<Mode::CPUNormal>(8065, 1, 201);
-//   }
-//   SECTION("[len:1440/max:1/gridSize:443]") {
-//     eval<Mode::CPUNormal>(1440, 1, 443);
-//   }
-//   SECTION("[len:400/max:1/gridSize:200]") {
-//     eval<Mode::CPUNormal>(400, 1, 200);
-//   }
-//   SECTION("[len:696/max:1/gridSize:232]") {
-//     eval<Mode::CPUNormal>(696, 1, 232);
-//   }
-// }
+TEST_CASE("CPUNormal", "[cpu_normal]") {
+  SECTION("[len:60/max:1/gridSize:60]") {
+    eval<Mode::CPUNormal>(60, 1, 60);
+  }
+  SECTION("[len:600/max:1/gridSize:100]") {
+    eval<Mode::CPUNormal>(600, 1, 100);
+  }
+  SECTION("[len:603/max:1/gridSize:201]") {
+    eval<Mode::CPUNormal>(603, 1, 201);
+  }
+  SECTION("[len:409/max:1/gridSize:160]") {
+    eval<Mode::CPUNormal>(409, 1, 160);
+  }
+  SECTION("[len:419/max:1/gridSize:100]") {
+    eval<Mode::CPUNormal>(419, 1, 100);
+  }
+  SECTION("[len:8065/max:1/gridSize:201]") {
+    eval<Mode::CPUNormal>(8065, 1, 201);
+  }
+  SECTION("[len:1440/max:1/gridSize:443]") {
+    eval<Mode::CPUNormal>(1440, 1, 443);
+  }
+  SECTION("[len:400/max:1/gridSize:200]") {
+    eval<Mode::CPUNormal>(400, 1, 200);
+  }
+  SECTION("[len:696/max:1/gridSize:232]") {
+    eval<Mode::CPUNormal>(696, 1, 232);
+  }
+}
 
-// TEST_CASE("GPUNormal", "[gpu_normal]") {
-//   SECTION("[len:60/max:1/gridSize:60]") {
-//     eval<Mode::GPUNormal>(60, 1, 60);
-//   }
-//   SECTION("[len:600/max:1/gridSize:100]") {
-//     eval<Mode::GPUNormal>(600, 1, 100);
-//   }
-//   SECTION("[len:603/max:1/gridSize:201]") {
-//     eval<Mode::GPUNormal>(603, 1, 201);
-//   }
-//   SECTION("[len:409/max:1/gridSize:160]") {
-//     eval<Mode::GPUNormal>(409, 1, 160);
-//   }
-//   SECTION("[len:419/max:1/gridSize:100]") {
-//     eval<Mode::GPUNormal>(419, 1, 100);
-//   }
-//   SECTION("[len:8065/max:1/gridSize:201]") {
-//     eval<Mode::GPUNormal>(8065, 1, 201);
-//   }
-//   SECTION("[len:1440/max:1/gridSize:443]") {
-//     eval<Mode::GPUNormal>(1440, 1, 443);
-//   }
-//   SECTION("[len:400/max:1/gridSize:200]") {
-//     eval<Mode::GPUNormal>(400, 1, 200);
-//   }
-//   SECTION("[len:696/max:1/gridSize:232]") {
-//     eval<Mode::GPUNormal>(696, 1, 232);
-//   }
-// }
+TEST_CASE("GPUNormal", "[gpu_normal]") {
+  SECTION("[len:60/max:1/gridSize:60]") {
+    eval<Mode::GPUNormal>(60, 1, 60);
+  }
+  SECTION("[len:600/max:1/gridSize:100]") {
+    eval<Mode::GPUNormal>(600, 1, 100);
+  }
+  SECTION("[len:603/max:1/gridSize:201]") {
+    eval<Mode::GPUNormal>(603, 1, 201);
+  }
+  SECTION("[len:409/max:1/gridSize:160]") {
+    eval<Mode::GPUNormal>(409, 1, 160);
+  }
+  SECTION("[len:419/max:1/gridSize:100]") {
+    eval<Mode::GPUNormal>(419, 1, 100);
+  }
+  SECTION("[len:8065/max:1/gridSize:201]") {
+    eval<Mode::GPUNormal>(8065, 1, 201);
+  }
+  SECTION("[len:1440/max:1/gridSize:443]") {
+    eval<Mode::GPUNormal>(1440, 1, 443);
+  }
+  SECTION("[len:400/max:1/gridSize:200]") {
+    eval<Mode::GPUNormal>(400, 1, 200);
+  }
+  SECTION("[len:696/max:1/gridSize:232]") {
+    eval<Mode::GPUNormal>(696, 1, 232);
+  }
+}
 
-// TEST_CASE("GPUCutoff", "[gpu_cutoff]") {
-//   SECTION("[len:60/max:1/gridSize:60]") {
-//     eval<Mode::GPUCutoff>(60, 1, 60);
-//   }
-//   SECTION("[len:600/max:1/gridSize:100]") {
-//     eval<Mode::GPUCutoff>(600, 1, 100);
-//   }
-//   SECTION("[len:603/max:1/gridSize:201]") {
-//     eval<Mode::GPUCutoff>(603, 1, 201);
-//   }
-//   SECTION("[len:409/max:1/gridSize:160]") {
-//     eval<Mode::GPUCutoff>(409, 1, 160);
-//   }
-//   SECTION("[len:419/max:1/gridSize:100]") {
-//     eval<Mode::GPUCutoff>(419, 1, 100);
-//   }
-//   SECTION("[len:8065/max:1/gridSize:201]") {
-//     eval<Mode::GPUCutoff>(8065, 1, 201);
-//   }
-//   SECTION("[len:1440/max:1/gridSize:443]") {
-//     eval<Mode::GPUCutoff>(1440, 1, 443);
-//   }
-//   SECTION("[len:400/max:1/gridSize:200]") {
-//     eval<Mode::GPUCutoff>(400, 1, 200);
-//   }
-//   SECTION("[len:696/max:1/gridSize:232]") {
-//     eval<Mode::GPUCutoff>(696, 1, 232);
-//   }
-// }
+TEST_CASE("GPUCutoff", "[gpu_cutoff]") {
+  SECTION("[len:60/max:1/gridSize:60]") {
+    eval<Mode::GPUCutoff>(60, 1, 60);
+  }
+  SECTION("[len:600/max:1/gridSize:100]") {
+    eval<Mode::GPUCutoff>(600, 1, 100);
+  }
+  SECTION("[len:603/max:1/gridSize:201]") {
+    eval<Mode::GPUCutoff>(603, 1, 201);
+  }
+  SECTION("[len:409/max:1/gridSize:160]") {
+    eval<Mode::GPUCutoff>(409, 1, 160);
+  }
+  SECTION("[len:419/max:1/gridSize:100]") {
+    eval<Mode::GPUCutoff>(419, 1, 100);
+  }
+  SECTION("[len:8065/max:1/gridSize:201]") {
+    eval<Mode::GPUCutoff>(8065, 1, 201);
+  }
+  SECTION("[len:1440/max:1/gridSize:443]") {
+    eval<Mode::GPUCutoff>(1440, 1, 443);
+  }
+  SECTION("[len:400/max:1/gridSize:200]") {
+    eval<Mode::GPUCutoff>(400, 1, 200);
+  }
+  SECTION("[len:696/max:1/gridSize:232]") {
+    eval<Mode::GPUCutoff>(696, 1, 232);
+  }
+}
 
 TEST_CASE("GPUBinnedCPUPreprocessing", "[gpu_binned_cpu_preprocessing]") {
-  // SECTION("[len:60/max:1/gridSize:60]") {
-  //   eval<Mode::GPUBinnedCPUPreprocessing>(60, 1, 60);
-  // }
-  // SECTION("[len:600/max:1/gridSize:100]") {
-  //   eval<Mode::GPUBinnedCPUPreprocessing>(600, 1, 100);
-  // }
-  // SECTION("[len:603/max:1/gridSize:201]") {
-  //   eval<Mode::GPUBinnedCPUPreprocessing>(603, 1, 201);
-  // }
-  // SECTION("[len:409/max:1/gridSize:160]") {
-  //   eval<Mode::GPUBinnedCPUPreprocessing>(409, 1, 160);
-  // }
-  // SECTION("[len:419/max:1/gridSize:100]") {
-  //   eval<Mode::GPUBinnedCPUPreprocessing>(419, 1, 100);
-  // }
-  // SECTION("[len:8065/max:1/gridSize:201]") {
-  //   eval<Mode::GPUBinnedCPUPreprocessing>(8065, 1, 201);
-  // }
-  // SECTION("[len:1440/max:1/gridSize:443]") {
-  //   eval<Mode::GPUBinnedCPUPreprocessing>(1440, 1, 443);
-  // }
-  // SECTION("[len:400/max:1/gridSize:200]") {
-  //   eval<Mode::GPUBinnedCPUPreprocessing>(400, 1, 200);
-  // }
-  // SECTION("[len:696/max:1/gridSize:232]") {
-  //   eval<Mode::GPUBinnedCPUPreprocessing>(696, 1, 232);
-  // }
+  SECTION("[len:60/max:1/gridSize:60]") {
+    eval<Mode::GPUBinnedCPUPreprocessing>(60, 1, 60);
+  }
+  SECTION("[len:600/max:1/gridSize:100]") {
+    eval<Mode::GPUBinnedCPUPreprocessing>(600, 1, 100);
+  }
+  SECTION("[len:603/max:1/gridSize:201]") {
+    eval<Mode::GPUBinnedCPUPreprocessing>(603, 1, 201);
+  }
+  SECTION("[len:409/max:1/gridSize:160]") {
+    eval<Mode::GPUBinnedCPUPreprocessing>(409, 1, 160);
+  }
+  SECTION("[len:419/max:1/gridSize:100]") {
+    eval<Mode::GPUBinnedCPUPreprocessing>(419, 1, 100);
+  }
+  SECTION("[len:8065/max:1/gridSize:201]") {
+    eval<Mode::GPUBinnedCPUPreprocessing>(8065, 1, 201);
+  }
+  SECTION("[len:1440/max:1/gridSize:443]") {
+    eval<Mode::GPUBinnedCPUPreprocessing>(1440, 1, 443);
+  }
+  SECTION("[len:400/max:1/gridSize:200]") {
+    eval<Mode::GPUBinnedCPUPreprocessing>(400, 1, 200);
+  }
+  SECTION("[len:696/max:1/gridSize:232]") {
+    eval<Mode::GPUBinnedCPUPreprocessing>(696, 1, 232);
+  }
 }
 
 // TEST_CASE("GPUBinnedGPUPreprocessing", "[gpu_binned_gpu_preprocessing]") {
