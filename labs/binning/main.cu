@@ -184,6 +184,10 @@ void gpu_cutoff_binned(int *bin_ptrs, float *in_val_sorted,
   const int numBlocks = (grid_size - 1) / numThreadsPerBlock + 1;
   gpu_cutoff_binned_kernel<<<numBlocks, numThreadsPerBlock>>>(
       bin_ptrs, in_val_sorted, in_pos_sorted, out, grid_size, cutoff2);
+  cudaError_t error = cudaGetLastError();
+  if (error != cudaSuccess) {
+    std::cout << "Error in kernel launch/n" << std::endl;
+  }
 }
 
 /******************************************************************************
