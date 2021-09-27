@@ -68,10 +68,10 @@ __global__ void gpu_cutoff_kernel(float *in_val, float *in_pos, float *out,
   if (out_i < grid_size) {
     float value = 0;
     for (int i = 0; i < num_in; i++) {
-      const float denom = (in_pos[i] - out_i) * (in_pos[i] - out_i);
-      if (denom < cutoff2) {
+      const float dist = abs(in_pos[i] - out_i);   //distance in 1D
+      if (dist < cutoff2) {
         const float num = in_val[i] * in_val[i];
-        value += num / denom;
+        value += num / (dist * dist);
       }
     }
     out[out_i] = value;
@@ -99,10 +99,10 @@ __global__ void gpu_cutoff_binned_kernel(int *bin_ptrs,
     // if (outBin + binWidth < rmostBin)
     //   rmostBin = outBin + binWidth;
 
-    const int lb       = std::floor(((float) out_i) - sqrtf(cutoff2));
-    const int ub       = std::ceil(((float) out_i) + sqrtf(cutoff2));
-    const int lmostBin = MAX((int) (lb / grid_size) * NUM_BINS, 0);
-    const int rmostBin = MIN((int) (ub / grid_size) * NUM_BINS, NUM_BINS - 1);
+    const float lb       = ((float) out_i - cutoff2);
+    const float ub       = ((float) out_i + cutoff2);
+    const int lmostBin   = MAX(std::floor((lb / grid_size) * NUM_BINS), 0);
+    const int rmostBin   = MIN(std::ceil((ub / grid_size) * NUM_BINS), NUM_BINS - 1);
 
     // scan the bins of interest
     const int start     = bin_ptrs[lmostBin];
@@ -114,28 +114,28 @@ __global__ void gpu_cutoff_binned_kernel(int *bin_ptrs,
     float value = 0;
     for (int i = start; i < landmark1; i++) {
       // check for cutoff
-      const float dist = (in_pos_sorted[i] - out_i) * (in_pos_sorted[i] - out_i);
+      const float dist = abs(out_i - in_pos_sorted[i]);
       if (dist < cutoff2) {
         const float num = in_val_sorted[i] * in_val_sorted[i];
-        value += num / dist;
+        value += num / (dist * dist);
       }
     }
     //need not check cutoff between landmark 1 and landmark2
     for (int i = landmark1; i < landmark2; i++) {
       // check for cutoff
-      const float dist = (in_pos_sorted[i] - out_i) * (in_pos_sorted[i] - out_i);
+      const float dist = (in_pos_sorted[i] - out_i);
       // if (dist < cutoff2) {
       const float num = in_val_sorted[i] * in_val_sorted[i];
-      value += num / dist;
+      value += num / (dist * dist);
       // }
     }
 
     for (int i = landmark2; i < end; i++) {
       // check for cutoff
-      const float dist = (in_pos_sorted[i] - out_i) * (in_pos_sorted[i] - out_i);
+      const float dist = abs(in_pos_sorted[i] - out_i);
       if (dist < cutoff2) {
         const float num = in_val_sorted[i] * in_val_sorted[i];
-        value += num / dist;
+        value += num / (dist * dist);
       }
     }
     out[out_i] = value;
@@ -180,6 +180,7 @@ void gpu_cutoff_binned(int *bin_ptrs, float *in_val_sorted,
                        float *in_pos_sorted, float *out, int grid_size,
                        float cutoff2) {
 
+  // printf("grid_size %d\n", grid_size);
   const int numThreadsPerBlock = 512;
   const int numBlocks = (grid_size - 1) / numThreadsPerBlock + 1;
   gpu_cutoff_binned_kernel<<<numBlocks, numThreadsPerBlock>>>(
