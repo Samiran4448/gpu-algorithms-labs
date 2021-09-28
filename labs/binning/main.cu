@@ -68,7 +68,7 @@ __global__ void gpu_cutoff_kernel(float *in_val, float *in_pos, float *out,
   if (out_i < grid_size) {
     float value = 0;
     for (int i = 0; i < num_in; i++) {
-      const float dist2 = (in_pos[i] - out_i) * (in_pos[i] - out_i); // distance in 1D
+      const float dist2 = (in_pos[i] - out_i) * (in_pos[i] - out_i); // distance in 1D^2
       if (dist2 < cutoff2) {
         const float num = in_val[i] * in_val[i];
         value += num / dist2;
