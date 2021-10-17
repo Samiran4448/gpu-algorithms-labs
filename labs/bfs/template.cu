@@ -18,6 +18,16 @@
  GPU kernels
 *******************************************************************************/
 
+// __device__ atomicCAA(unsigned int* address, unsigned int value, unsigned int check){
+//   unsigned int old = *address;
+//   unsigned int assumed;
+//   do
+//   {
+//     assumed = check;
+//     old = atomicCAS(address, assumed, value + assumed)
+//   } while (assumed != check);
+// }
+
 __global__ void gpu_global_queuing_kernel(unsigned int *nodePtrs,
                                           unsigned int *nodeNeighbors,
                                           unsigned int *nodeVisited,
@@ -77,15 +87,30 @@ __global__ void gpu_block_queuing_kernel(unsigned int *nodePtrs,
       unsigned int neighbor = nodeNeighbors[j];
 
       // set the neighbor to 1 and check if it was not already visited
+      //V1
       if (!atomicExch(&nodeVisited[neighbor], 1)) {
         unsigned int location = atomicAdd(&block_location, 1);
-        if (location < BQ_CAPACITY) {
+        if (location < BQ_CAPACITY)
           bqNodes[location] = neighbor;
-        } else {
-          location    = atomicAdd(numNextLevelNodes, 1);
+        else {
+          location = atomicAdd(numNextLevelNodes, 1);
           nextLevelNodes[location] = neighbor;
         }
       }
+
+      //V2
+      // if (!atomicExch(&nodeVisited[neighbor], 1)) {
+      //   unsigned int location = block_location;
+      //   if (location < BQ_CAPACITY) {   //***THIS WILL SAVE SOME ATOMIC ADDITIONS BUT DOESN'T IMPROVE TIME FOR THE SMALL TESTCASE***// 
+      //     location = atomicAdd(&block_location, 1);
+      //     if(location<BQ_CAPACITY)
+      //       bqNodes[location] = neighbor;
+      //   } else {
+      //     location    = atomicAdd(numNextLevelNodes, 1);
+      //     nextLevelNodes[location] = neighbor;
+      //   }
+      // }
+
     }
   }
   __syncthreads();

@@ -30,7 +30,6 @@ add_executable(bfs
 
 
 # CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS Auto)
-
 target_compile_features(bfs PUBLIC cxx_std_11)
 
 # We need to explicitly state that we need all CUDA files in the particle
@@ -41,7 +40,13 @@ set_target_properties( bfs PROPERTIES
                        CUDA_RESOLVE_DEVICE_SYMBOLS ON
                       )
 
-target_link_libraries(bfs ${CUDA_LIBRARIES})
+target_compile_options(bfs PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:
+    -dc
+    -gencode arch=compute_70,code=sm_70
+    --default-stream=per-thread
+>)
+
+target_link_libraries(bfs ${CUDA_LIBRARIES} -lcudadevrt)
 
 
 include_directories(bfs
