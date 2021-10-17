@@ -52,9 +52,15 @@ __global__ static void kernel_tc(uint64_t *__restrict__ triangleCounts, //!< per
 }
 
 uint64_t count_triangles(const pangolin::COOView<uint32_t> view, const int mode) {
-  if (mode == 1) {
+  //@@ create a pangolin::Vector (uint64_t) to hold per-edge triangle counts
+  // Pangolin is backed by CUDA so you do not need to explicitly copy data between host and device.
+  // You may find pangolin::Vector::data() function useful to get a pointer for your kernel to use.
 
-    // REQUIRED
+  uint64_t total = 0;
+
+  dim3 dimBlock(512);
+  //@@ calculate the number of blocks needed
+  // dim3 dimGrid (ceil(number of non-zeros / dimBlock.x))
 
     //@@ create a pangolin::Vector (uint64_t) to hold per-edge triangle counts
     // Pangolin is backed by CUDA so you do not need to explicitly copy data between host and device.
@@ -79,14 +85,14 @@ uint64_t count_triangles(const pangolin::COOView<uint32_t> view, const int mode)
 
   } else if (2 == mode) {
 
-    // OPTIONAL. See README for more details
+    //@@ launch the hybrid search kernel here
+    // your_kernel_name_goes_here<<<dimGrid, dimBlock>>>(...)
 
-    uint64_t total = 0;
-    //@@ do a global reduction (on CPU or GPU) to produce the final triangle count
-
-    return total;
   } else {
     assert("Unexpected mode");
     return uint64_t(-1);
   }
+
+  //@@ do a global reduction (on CPU or GPU) to produce the final triangle count
+  return total;
 }

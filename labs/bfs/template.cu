@@ -5,14 +5,14 @@
 #include "template.hu"
 
 #define BLOCK_SIZE 512
-#define WARP_SIZE 32
-#define NUM_WARPS (BLOCK_SIZE / WARP_SIZE)
 
 // Maximum number of elements that can be inserted into a block queue
-#define BQ_CAPACITY 2048
+#define BQ_CAPACITY 4096
 
+// Number of warp queues per block
+#define NUM_WARP_QUEUES 8
 // Maximum number of elements that can be inserted into a warp queue
-#define WQ_CAPACITY 128
+#define WQ_CAPACITY (BQ_CAPACITY / NUM_WARP_QUEUES)
 
 /******************************************************************************
  GPU kernels
@@ -37,7 +37,7 @@ __global__ void gpu_global_queuing_kernel(unsigned int *nodePtrs,
                                           unsigned int *numNextLevelNodes) {
 
   // INSERT KERNEL CODE HERE
-  // Loop over all nodes in the curent level
+  // Loop over all nodes in the current level
   // Loop over all neighbors of the node
   // If the neighbor hasn't been visited yet
   // Add it to the global queue
@@ -56,7 +56,7 @@ __global__ void gpu_global_queuing_kernel(unsigned int *nodePtrs,
   }
 }
 
-__global__ void gpu_block_queuing_kernel(unsigned int *nodePtrs,
+__global__ void gpu_block_queueing_kernel(unsigned int *nodePtrs,
                                          unsigned int *nodeNeighbors,
                                          unsigned int *nodeVisited,
                                          unsigned int *currLevelNodes,
@@ -127,7 +127,7 @@ __global__ void gpu_block_queuing_kernel(unsigned int *nodePtrs,
   }
 }
 
-__global__ void gpu_warp_queuing_kernel(unsigned int *nodePtrs,
+__global__ void gpu_warp_queueing_kernel(unsigned int *nodePtrs,
                                         unsigned int *nodeNeighbors,
                                         unsigned int *nodeVisited,
                                         unsigned int *currLevelNodes,
@@ -137,7 +137,8 @@ __global__ void gpu_warp_queuing_kernel(unsigned int *nodePtrs,
 
   // INSERT KERNEL CODE HERE
 
-  // This version uses one queue per warp
+  // This version uses NUM_WARP_QUEUES warp queues of capacity 
+  // WQ_CAPACITY.  Be sure to interleave them as discussed in lecture.  
 
   // Initialize shared memory queue
   __shared__ unsigned int wqNodes[WQ_CAPACITY][NUM_WARPS];
@@ -148,7 +149,9 @@ __global__ void gpu_warp_queuing_kernel(unsigned int *nodePtrs,
   __shared__ unsigned int bqNodes[BQ_CAPACITY];
   __shared__ unsigned int bq_location, bq_size, bq2gq_location;
 
-  // Loop over all nodes in the curent level
+  // Initialize shared memory queues (warp and block)
+
+  // Loop over all nodes in the current level
   // Loop over all neighbors of the node
   // If the neighbor hasn't been visited yet
   // Add it to the warp queue
@@ -249,38 +252,38 @@ __global__ void gpu_warp_queuing_kernel(unsigned int *nodePtrs,
 *******************************************************************************/
 // DON NOT MODIFY THESE FUNCTIONS!
 
-void gpu_global_queuing(unsigned int *nodePtrs, unsigned int *nodeNeighbors,
+void gpu_global_queueing(unsigned int *nodePtrs, unsigned int *nodeNeighbors,
                         unsigned int *nodeVisited, unsigned int *currLevelNodes,
                         unsigned int *nextLevelNodes,
                         unsigned int *numCurrLevelNodes,
                         unsigned int *numNextLevelNodes) {
 
   const unsigned int numBlocks = 45;
-  gpu_global_queuing_kernel << <numBlocks, BLOCK_SIZE>>>
+  gpu_global_queueing_kernel << <numBlocks, BLOCK_SIZE>>>
       (nodePtrs, nodeNeighbors, nodeVisited, currLevelNodes, nextLevelNodes,
        numCurrLevelNodes, numNextLevelNodes);
 }
 
-void gpu_block_queuing(unsigned int *nodePtrs, unsigned int *nodeNeighbors,
+void gpu_block_queueing(unsigned int *nodePtrs, unsigned int *nodeNeighbors,
                        unsigned int *nodeVisited, unsigned int *currLevelNodes,
                        unsigned int *nextLevelNodes,
                        unsigned int *numCurrLevelNodes,
                        unsigned int *numNextLevelNodes) {
 
   const unsigned int numBlocks = 45;
-  gpu_block_queuing_kernel << <numBlocks, BLOCK_SIZE>>>
+  gpu_block_queueing_kernel << <numBlocks, BLOCK_SIZE>>>
       (nodePtrs, nodeNeighbors, nodeVisited, currLevelNodes, nextLevelNodes,
        numCurrLevelNodes, numNextLevelNodes);
 }
 
-void gpu_warp_queuing(unsigned int *nodePtrs, unsigned int *nodeNeighbors,
+void gpu_warp_queueing(unsigned int *nodePtrs, unsigned int *nodeNeighbors,
                       unsigned int *nodeVisited, unsigned int *currLevelNodes,
                       unsigned int *nextLevelNodes,
                       unsigned int *numCurrLevelNodes,
                       unsigned int *numNextLevelNodes) {
 
   const unsigned int numBlocks = 45;
-  gpu_warp_queuing_kernel << <numBlocks, BLOCK_SIZE>>>
+  gpu_warp_queueing_kernel << <numBlocks, BLOCK_SIZE>>>
       (nodePtrs, nodeNeighbors, nodeVisited, currLevelNodes, nextLevelNodes,
        numCurrLevelNodes, numNextLevelNodes);
 }
