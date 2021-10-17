@@ -4,8 +4,27 @@
 
 #include "template.hu"
 
-__device__ uint64_t Intersect(const uint32_t *const edgeDst, size_t srcStart, size_t srcEnd, size_t dstStart, size_t dstEnd){
-
+__device__ uint64_t Intersect_Lin(const uint32_t *const edgeDst, size_t srcStart, size_t srcEnd, size_t dstStart, size_t dstEnd) {
+  uint64_t TC = 0;
+  if (srcStart < srcEnd && dstStart < dstEnd) {
+    uint32_t W1 = edgeDst[srcStart];
+    uint32_t W2 = edgeDst[dstStart];
+    while (srcStart < srcEnd && dstStart < dstEnd) {
+      if (W1 < W2) {
+        W1 = edgeDst[++srcStart];
+      }
+      if (W1 > W2) {
+        W2 = edgeDst[++dstStart];
+      }
+      if (W1 == W2) {
+        W1 = edgeDst[++srcStart];
+        W2 = edgeDst[++dstStart];
+        ++TC;
+      }
+    }
+    return TC;
+  } else
+    return 0;
 }
 
 __global__ static void kernel_tc(uint64_t *__restrict__ triangleCounts, //!< per-edge triangle counts
@@ -21,14 +40,14 @@ __global__ static void kernel_tc(uint64_t *__restrict__ triangleCounts, //!< per
     uint32_t dst = edgeDst[edgeID];
 
     // Use the row pointer array to determine the start and end of the neighbor list in the column index array
-    size_t srcStart = rowptr[src];
-    size_t srcEnd   = rowptr[src+1];
+    size_t srcStart = rowPtr[src];
+    size_t srcEnd   = rowPtr[src+1];
 
-    size_t dstStart = rowptr[dst];
-    size_t dstEnd   = rowptr[dst + 1];
+    size_t dstStart = rowPtr[dst];
+    size_t dstEnd   = rowPtr[dst + 1];
     // Determine how many elements of those two arrays are common
 
-    triangleCounts[edgeID] += Intersect(edgeDst, srcStart, srcEnd, dstStart, dstEnd);
+    triangleCounts[edgeID] = Intersect_Lin(edgeDst, srcStart, srcEnd, dstStart, dstEnd);
   }
 }
 
@@ -43,19 +62,20 @@ uint64_t count_triangles(const pangolin::COOView<uint32_t> view, const int mode)
     pangolin::Vector<uint64_t> edge_counts;
     //@@ launch the linear search kernel here
     dim3 dimBlock(512);
-    dim3 dimGrid(ceil(view.nnz() / dimBlock.x));
-    std::cout << view.nnz() << " view.nnz() test\n" << std::endl;
-    std::cout << dimGrid.x << " Grid dimensions test\n" << std::endl;
+    dim3 dimGrid((view.nnz() + dimBlock.x - 1) / dimBlock.x);
+    std::cout << view.nnz() << " view.nnz() test" << std::endl;
+    std::cout << dimGrid.x << " Grid dimensions test" << std::endl;
     kernel_tc<<<dimGrid, dimBlock>>>(edge_counts.data(), view.row_ind(), view.col_ind(), view.row_ptr(), view.nnz());
 
+    printf("Code reached here\n");
     uint64_t total = 0;
     //@@ do a global reduction (on CPU or GPU) to produce the final triangle count
     //CPU reduction
-    for (int i = 0;i<view.nnz(),i++){
-      total += edge_counts[i];
+    for (uint64_t i = 0; i < view.nnz(); i++) {
+      total += edge_counts.data()[i];
     }
-
-      return total;
+    printf("code reached here too\n");
+    return total;
 
   } else if (2 == mode) {
 
