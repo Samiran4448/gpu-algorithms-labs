@@ -65,17 +65,17 @@ static int eval(const std::string &path, const Mode &mode) {
 
 TEST_CASE("graph500-scale18-ef16_adj", "") {
   SECTION("LINEAR") { eval(GRAPH_PREFIX_PATH "/graph500-scale18-ef16_adj.bel", LINEAR); }
-  // SECTION("OTHER") { eval(GRAPH_PREFIX_PATH "/graph500-scale18-ef16_adj.bel", OTHER); }
+  SECTION("OTHER") { eval(GRAPH_PREFIX_PATH "/graph500-scale18-ef16_adj.bel", OTHER); }
 }
 
 TEST_CASE("amazon0302_adj", "") {
   SECTION("LINEAR") { eval(GRAPH_PREFIX_PATH "/amazon0302_adj.bel", LINEAR); }
-  // SECTION("OTHER") { eval(GRAPH_PREFIX_PATH "/amazon0302_adj.bel", OTHER); }
+  SECTION("OTHER") { eval(GRAPH_PREFIX_PATH "/amazon0302_adj.bel", OTHER); }
 }
 
 TEST_CASE("roadNet-CA_adj", "") {
   SECTION("LINEAR") { eval(GRAPH_PREFIX_PATH "/roadNet-CA_adj.bel", LINEAR); }
-  // SECTION("OTHER") { eval(GRAPH_PREFIX_PATH "/roadNet-CA_adj.bel", OTHER); }
+  SECTION("OTHER") { eval(GRAPH_PREFIX_PATH "/roadNet-CA_adj.bel", OTHER); }
 }
 
 
