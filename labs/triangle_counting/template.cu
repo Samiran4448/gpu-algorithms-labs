@@ -12,19 +12,18 @@ __device__ uint64_t Intersect_Lin(const uint32_t *const edgeDst, size_t srcStart
     while (srcStart < srcEnd && dstStart < dstEnd) {
       if (W1 < W2) {
         W1 = edgeDst[++srcStart];
-      }
-      if (W1 > W2) {
+      } else if (W1 > W2) {
         W2 = edgeDst[++dstStart];
-      }
-      if (W1 == W2) {
+      } else if (W1 == W2) {
         W1 = edgeDst[++srcStart];
         W2 = edgeDst[++dstStart];
         ++TC;
       }
     }
     return TC;
-  } else
+  } else {
     return 0;
+  }
 }
 
 __global__ static void kernel_tc(uint64_t *__restrict__ triangleCounts, //!< per-edge triangle counts
@@ -34,17 +33,17 @@ __global__ static void kernel_tc(uint64_t *__restrict__ triangleCounts, //!< per
                                  const size_t numEdges                  //!< how many edges to count triangles for
 ) {
   size_t edgeID = threadIdx.x + blockIdx.x * blockDim.x;
-  if (edgeID < numEdges) {
+  if (edgeID < numEdges && numEdges > 0) {
     // Determine the source and destination node for the edge
     uint32_t src = edgeSrc[edgeID];
     uint32_t dst = edgeDst[edgeID];
 
     // Use the row pointer array to determine the start and end of the neighbor list in the column index array
     size_t srcStart = rowPtr[src];
-    size_t srcEnd   = rowPtr[src+1];
+    size_t srcEnd   = (numEdges > rowPtr[src + 1]) ? rowPtr[src + 1] : numEdges;
 
     size_t dstStart = rowPtr[dst];
-    size_t dstEnd   = rowPtr[dst + 1];
+    size_t dstEnd   = (numEdges > rowPtr[dst + 1]) ? rowPtr[dst + 1] : numEdges;
     // Determine how many elements of those two arrays are common
 
     triangleCounts[edgeID] = Intersect_Lin(edgeDst, srcStart, srcEnd, dstStart, dstEnd);
@@ -58,32 +57,37 @@ uint64_t count_triangles(const pangolin::COOView<uint32_t> view, const int mode)
 
   uint64_t total = 0;
 
-  dim3 dimBlock(512);
   //@@ calculate the number of blocks needed
   // dim3 dimGrid (ceil(number of non-zeros / dimBlock.x))
 
-    //@@ create a pangolin::Vector (uint64_t) to hold per-edge triangle counts
-    // Pangolin is backed by CUDA so you do not need to explicitly copy data between host and device.
-    // You may find pangolin::Vector::data() function useful to get a pointer for your kernel to use.
-    pangolin::Vector<uint64_t> edge_counts;
-    //@@ launch the linear search kernel here
-    dim3 dimBlock(512);
+  //@@ create a pangolin::Vector (uint64_t) to hold per-edge triangle counts
+  // Pangolin is backed by CUDA so you do not need to explicitly copy data between host and device.
+  // You may find pangolin::Vector::data() function useful to get a pointer for your kernel to use.
+  pangolin::Vector<uint64_t> edge_counts = pangolin::Vector<uint64_t>(view.nnz(), 0);
+  //@@ launch the linear search kernel here
+  dim3 dimBlock(1024);
+  if (mode == 1) {
     dim3 dimGrid((view.nnz() + dimBlock.x - 1) / dimBlock.x);
-    std::cout << view.nnz() << " view.nnz() test" << std::endl;
-    std::cout << dimGrid.x << " Grid dimensions test" << std::endl;
+    // std::cout << view.nnz() << " view.nnz() test" << std::endl;
+    // std::cout << dimGrid.x << " Grid dimensions test" << std::endl;
     kernel_tc<<<dimGrid, dimBlock>>>(edge_counts.data(), view.row_ind(), view.col_ind(), view.row_ptr(), view.nnz());
+    cudaDeviceSynchronize();  
+    // for (int i = 0; i < 10; i++) {
+    //   printf("count %d\t", (int) edge_counts.data()[i]);
+    //   printf("Edge source %d\t", view.row_ind()[i]);
+    //   printf("Edge destination %d\n", view.col_ind()[i]);
+    // }
+    // printf("testing row_ptr array\n");
+    // for (int i = 0; i < 10; i++) {
+    //   printf("row ptr for %d\t to %d\n", view.row_ptr()[i], view.row_ptr()[i + 1]);
+    // }
 
-    printf("Code reached here\n");
-    uint64_t total = 0;
+    // printf("row ptr from %d\t to %d\n", view.row_ptr()[1], view.row_ptr()[2]);
+    // printf("Code reached here %d\n", __LINE__);
+
     //@@ do a global reduction (on CPU or GPU) to produce the final triangle count
-    //CPU reduction
-    for (uint64_t i = 0; i < view.nnz(); i++) {
-      total += edge_counts.data()[i];
-    }
-    printf("code reached here too\n");
-    return total;
 
-  } else if (2 == mode) {
+  } else if (mode == 2) {
 
     //@@ launch the hybrid search kernel here
     // your_kernel_name_goes_here<<<dimGrid, dimBlock>>>(...)
@@ -93,6 +97,15 @@ uint64_t count_triangles(const pangolin::COOView<uint32_t> view, const int mode)
     return uint64_t(-1);
   }
 
+  
   //@@ do a global reduction (on CPU or GPU) to produce the final triangle count
+  // CPU reduction
+  for (uint64_t i = 0; i < view.nnz(); ++i) {
+    total += edge_counts.data()[i];
+  }
+  // printf("code reached here %d\n", __LINE__);
+
+  // return total
   return total;
+
 }
