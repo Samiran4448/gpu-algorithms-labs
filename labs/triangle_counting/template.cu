@@ -44,7 +44,7 @@ __device__ uint64_t Bin_Search(const uint32_t needle, const uint32_t *const edge
   /*else if (edgeDst[heystackStart] == needle) {
     return (uint64_t) 1;
   }*/
-  else
+  else 
     return (uint64_t) 0;
 }
 
@@ -136,11 +136,11 @@ __global__ static void kernel_tc_bin(uint64_t *__restrict__ triangleCounts, //!<
 }
 
 __global__ void GPU_total(uint64_t *inputList, uint64_t *outputList, const size_t len) {
-      __shared__ uint64_t sdata[2*BLOCK_SIZE];
+      __shared__ uint64_t sdata[BLOCK_SIZE];
       unsigned int tid = threadIdx.x;
       unsigned int i   = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
       sdata[tid]              = 0;
-      sdata[tid + blockDim.x] = 0;
+      // sdata[tid + blockDim.x] = 0;
       __syncthreads();
       if (i < len) {
         sdata[tid] = inputList[i];
@@ -149,7 +149,7 @@ __global__ void GPU_total(uint64_t *inputList, uint64_t *outputList, const size_
         }
       }
       __syncthreads();
-      for (unsigned int s=blockDim.x/2; s>0; s>>=1) {
+      for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
         if (tid < s) {
           sdata[tid] += sdata[tid + s];
         }
