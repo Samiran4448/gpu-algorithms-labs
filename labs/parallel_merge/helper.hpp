@@ -23,8 +23,13 @@
 
 static bool verify(const std::vector<float> &ref_sol, const std::vector<float> &sol) {
     for (size_t i = 0; i < ref_sol.size(); i++) {
-        INFO("Merge results differ from reference solution.");
-        REQUIRE(ref_sol[i] == sol[i]);
+      INFO("Merge results differ from reference solution");
+      REQUIRE(ref_sol[i] == sol[i]);
+      // if (ref_sol[i] != sol[i]){
+      //   printf("Error at %d\n", i);
+      //   printf("Expected %f,\t Output %f\n", ref_sol[i], sol[i]);
+      //   return false;
+      // }
     }
     return true;
 }
