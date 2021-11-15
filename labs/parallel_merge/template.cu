@@ -165,7 +165,7 @@ __global__ void gpu_merge_tiled_kernel(float* A, int A_len, float* B, int B_len,
     //   if (threadIdx.x == 0 && blockIdx.x == 0) {
     //     printf("After merge_sequential tileC[0]: %f\n", tileC[0]);
     //   }
-    //   __syncthreads();
+      __syncthreads();
       for (int i = threadIdx.x; i < C_remaining; i += blockDim.x) {
         C[blk_C_curr + C_produced + i] = tileC[i];
       }
